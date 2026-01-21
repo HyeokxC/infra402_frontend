@@ -91,7 +91,156 @@ Paywalled Proxmox service (`x402` payment required):
 
 For request/response examples and the payment flow, see `backend-proxmox/API_USAGE.md`.
 
+## Troubleshooting
+
+### Backend Issues
+
+#### 1. Protocol Missing Error
+
+**Error**: `Request URL is missing an 'http://' or 'https://' protocol`
+
+**Cause**: `PVE_HOST` in `backend-proxmox/.env` is missing the protocol prefix.
+
+**Fix**:
+```bash
+# ❌ Wrong
+PVE_HOST="192.168.1.100:8006"
+
+# ✅ Correct
+PVE_HOST="https://192.168.1.100:8006"
+PVE_CONSOLE_HOST="https://192.168.1.100:8006"
+```
+
+#### 2. SSL Certificate Verification Failed
+
+**Error**: `[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed`
+
+**Cause**: Proxmox uses self-signed SSL certificates by default.
+
+**Fix**: Disable SSL verification in `backend-proxmox/.env`:
+```bash
+PVE_VERIFY_SSL=false
+```
+
+**Production Alternative**: Set up proper SSL certificates using Let's Encrypt:
+```bash
+# On Proxmox server
+pvenode acme account register default your-email@example.com
+pvenode config set --acme domains=proxmox.yourdomain.com
+pvenode acme cert order
+```
+
+#### 3. API Token Permissions
+
+**Error**: HTTP 595 or "Permission denied"
+
+**Cause**: API token lacks required permissions.
+
+**Fix**: Grant Administrator role to the token:
+```bash
+# On Proxmox server
+pveum acl modify / -token 'root@pam!yourTokenID' -role Administrator
+
+# Verify permissions
+pveum user token permissions root@pam yourTokenID
+```
+
+Required permissions:
+- `VM.Allocate` - Create containers
+- `VM.Config.*` - Configure resources
+- `Datastore.AllocateSpace` - Allocate storage
+- `Sys.Console` - Console access
+
+#### 4. Wrong Node Name
+
+**Error**: Container creation fails with 595 or "Node not found"
+
+**Cause**: `PVE_NODE` doesn't match actual Proxmox node name.
+
+**Fix**:
+```bash
+# Check actual node name
+pvesh get /nodes
+
+# Update backend-proxmox/.env
+PVE_NODE="your-actual-node-name"
+```
+
+#### 5. Storage or Template Issues
+
+**Error**: "Storage not found" or "Template not found"
+
+**Fix**:
+```bash
+# Check available storage
+pvesm status
+
+# List templates
+pveam list local
+
+# Download Ubuntu template if missing
+pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
+```
+
+### Frontend Issues
+
+#### Duplicate Payment Requests
+
+**Issue**: Payment triggered multiple times, causing 500 errors.
+
+**Cause**: Auto-payment `useEffect` and manual button click both trigger payment.
+
+**Fix**: Already implemented in `frontend/src/App.tsx` using `isProcessingPayment` ref flag.
+
+#### Wallet Not Connecting
+
+**Issue**: Coinbase Wallet doesn't pop up.
+
+**Fix**:
+- Install Coinbase Wallet browser extension
+- Ensure wallet is on the correct network (check `VITE_DEFAULT_NETWORK`)
+- Check browser console for errors
+
+#### CORS Errors
+
+**Issue**: "Access to fetch blocked by CORS policy"
+
+**Fix**: Ensure backend CORS settings allow frontend origin. In `backend-llm/pydantic-server.py`:
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://your-frontend-domain.com"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+### Deployment Issues
+
+#### Vercel Build Fails
+
+**Issue**: Build fails with peer dependency errors.
+
+**Fix**: Use `--legacy-peer-deps` flag in `vercel.json`:
+```json
+{
+  "buildCommand": "cd frontend && npm install --legacy-peer-deps && npm run build"
+}
+```
+
+#### Environment Variables Not Working
+
+**Issue**: App can't connect to backend after deployment.
+
+**Fix**: Set environment variables in Vercel dashboard:
+- `VITE_CHAT_API_BASE` - Your production backend URL
+- `VITE_ONCHAINKIT_API_KEY` - CDP API key
+- `VITE_DEFAULT_NETWORK` - Network (base-sepolia or base)
+
 ## Notes
 
 - Secrets belong in `.env` files and should not be committed.
 - The **frontend** is the entity that signs the payment headers using the connected wallet. The agent backend merely facilitates the negotiation.
+- For production deployments, always use HTTPS and proper SSL certificates.
+- Test thoroughly on testnet (base-sepolia) before deploying to mainnet.

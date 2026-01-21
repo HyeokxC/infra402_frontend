@@ -84,6 +84,7 @@ function App() {
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLElement | null>(null);
+  const isProcessingPayment = useRef<boolean>(false);
 
   const canSend = useMemo(
     () => Boolean(input.trim()) && !loading && !pendingPayment,
@@ -144,7 +145,7 @@ function App() {
 
   // Auto-trigger payment when wallet connects and payment is pending
   useEffect(() => {
-    if (pendingPayment && isConnected && address && !loading) {
+    if (pendingPayment && isConnected && address && !loading && !isProcessingPayment.current) {
       // Small delay to ensure wallet is fully ready
       const timer = setTimeout(() => {
         handlePayment();
@@ -264,6 +265,14 @@ function App() {
 
   async function handlePayment() {
     if (!pendingPayment || !address || !pendingMessageContent) return;
+
+    // Prevent duplicate payment processing
+    if (isProcessingPayment.current) {
+      console.log("Payment already in progress, skipping duplicate request");
+      return;
+    }
+
+    isProcessingPayment.current = true;
     setError(null);
 
     try {
@@ -339,6 +348,9 @@ function App() {
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Payment failed");
+    } finally {
+      // Reset the flag when payment completes or fails
+      isProcessingPayment.current = false;
     }
   }
 
@@ -363,6 +375,7 @@ function App() {
     setInput("");
     setPendingPayment(null);
     setPendingMessageContent(null);
+    isProcessingPayment.current = false;
     inputRef.current?.focus();
   }
 
