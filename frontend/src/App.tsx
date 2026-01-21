@@ -16,7 +16,7 @@ import {
   WalletDropdownDisconnect,
 } from "@coinbase/onchainkit/wallet";
 import { Address as AddressComponent, Avatar, Name, Identity, EthBalance } from "@coinbase/onchainkit/identity";
-import { useAccount, useSignTypedData } from "wagmi";
+import { useAccount, useSignTypedData, useConnect } from "wagmi";
 import {
   encodeX402Header,
   generateNonce,
@@ -62,6 +62,7 @@ function randomId() {
 function App() {
   const { address, isConnected } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
+  const { connect, connectors } = useConnect();
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -94,6 +95,19 @@ function App() {
     sdk.actions.ready();
   }, []);
 
+  // Auto-connect wallet on page load
+  useEffect(() => {
+    if (!isConnected && connectors.length > 0) {
+      // Find Coinbase Wallet connector
+      const coinbaseConnector = connectors.find(
+        (connector) => connector.id === 'coinbaseWalletSDK'
+      );
+      if (coinbaseConnector) {
+        connect({ connector: coinbaseConnector });
+      }
+    }
+  }, [isConnected, connectors, connect]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -115,6 +129,29 @@ function App() {
     if (!messagesRef.current) return;
     messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
   }, [messages, loading, pendingPayment]);
+
+  // Auto-trigger wallet connection when payment is required
+  useEffect(() => {
+    if (pendingPayment && !isConnected && connectors.length > 0) {
+      const coinbaseConnector = connectors.find(
+        (connector) => connector.id === 'coinbaseWalletSDK'
+      );
+      if (coinbaseConnector) {
+        connect({ connector: coinbaseConnector });
+      }
+    }
+  }, [pendingPayment, isConnected, connectors, connect]);
+
+  // Auto-trigger payment when wallet connects and payment is pending
+  useEffect(() => {
+    if (pendingPayment && isConnected && address && !loading) {
+      // Small delay to ensure wallet is fully ready
+      const timer = setTimeout(() => {
+        handlePayment();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, address, pendingPayment]);
 
   async function sendChat(
     event?: FormEvent,
