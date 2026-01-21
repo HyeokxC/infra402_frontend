@@ -15,7 +15,7 @@ import {
   WalletDropdown,
   WalletDropdownDisconnect,
 } from "@coinbase/onchainkit/wallet";
-import { Address, Avatar, Name, Identity, EthBalance } from "@coinbase/onchainkit/identity";
+import { Address as AddressComponent, Avatar, Name, Identity, EthBalance } from "@coinbase/onchainkit/identity";
 import { useAccount, useSignTypedData } from "wagmi";
 import {
   encodeX402Header,
@@ -27,7 +27,7 @@ import {
   type X402Header,
   X402_VERSION,
 } from "./x402";
-import { Hex } from "viem";
+import { type Address, type Hex } from "viem";
 
 type ChatMessage = {
   id: string;
@@ -354,7 +354,7 @@ function App() {
                 <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
                   <Avatar />
                   <Name />
-                  <Address />
+                  <AddressComponent />
                   <EthBalance />
                 </Identity>
                 <WalletDropdownDisconnect />
@@ -393,17 +393,57 @@ function App() {
             <article className="message assistant payment-request">
               <div className="avatar">i402</div>
               <div className="bubble payment-bubble">
-                <p><strong>Payment Required</strong></p>
-                <p>This action requires a micropayment.</p>
+                <p><strong>💳 Payment Required</strong></p>
+                <p>This action requires a micropayment to proceed.</p>
+
+                {pendingPayment.accepts && pendingPayment.accepts.length > 0 && (
+                  <div className="payment-details" style={{
+                    margin: '12px 0',
+                    padding: '8px',
+                    background: 'rgba(255,255,255,0.05)',
+                    borderRadius: '4px',
+                    fontSize: '0.9em'
+                  }}>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Amount:</strong> {(Number(pendingPayment.accepts[0]?.maxAmountRequired || 0) / 1e6).toFixed(4)} USDC
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Network:</strong> {pendingPayment.accepts[0]?.network || 'base-sepolia'}
+                    </p>
+                  </div>
+                )}
+
                 {!isConnected ? (
-                  <p className="text-sm mt-2 text-yellow-400">Please connect your wallet first.</p>
+                  <div style={{ marginTop: '12px' }}>
+                    <p className="text-sm mb-2" style={{ color: '#fbbf24' }}>
+                      ⚠️ Please connect your wallet to proceed
+                    </p>
+                    <Wallet>
+                      <ConnectWallet>
+                        <Avatar className="h-6 w-6" />
+                        <Name />
+                      </ConnectWallet>
+                    </Wallet>
+                  </div>
                 ) : (
                   <button
                     className="pay-button"
                     onClick={handlePayment}
                     disabled={loading}
+                    style={{
+                      marginTop: '12px',
+                      padding: '10px 20px',
+                      background: loading ? '#666' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      transition: 'all 0.2s'
+                    }}
                   >
-                    {loading ? "Processing..." : "Sign & Pay"}
+                    {loading ? "⏳ Processing..." : "✍️ Sign & Pay"}
                   </button>
                 )}
               </div>
