@@ -18,7 +18,7 @@
             "https://infra402.vercel.app/screenshot2.png",
             "https://infra402.vercel.app/screenshot3.png"
         ],
-        "primaryCategory": "developer_tools",
+        "primaryCategory": "developer-tools",
         "tags": [
             "infrastructure",
             "containers",
