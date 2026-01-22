@@ -92,12 +92,20 @@ function App() {
   );
 
   // Base App MiniApp SDK - notify app is ready
+  const isInMiniApp = typeof window !== 'undefined' && window.parent !== window;
+
   useEffect(() => {
     sdk.actions.ready();
   }, []);
 
-  // Auto-connect wallet on page load
+  // Auto-connect wallet on page load (skip in MiniApp - wallet already connected)
   useEffect(() => {
+    if (isInMiniApp) {
+      // In Base MiniApp, wallet is already connected by the app
+      console.log('Running in Base MiniApp - skipping auto-connect');
+      return;
+    }
+
     if (!isConnected && connectors.length > 0) {
       // Find Coinbase Wallet connector
       const coinbaseConnector = connectors.find(
@@ -107,7 +115,7 @@ function App() {
         connect({ connector: coinbaseConnector });
       }
     }
-  }, [isConnected, connectors, connect]);
+  }, [isConnected, connectors, connect, isInMiniApp]);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,7 +160,7 @@ function App() {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isConnected, address, pendingPayment]);
+  }, [isConnected, address, pendingPayment, loading]);
 
   async function sendChat(
     event?: FormEvent,
@@ -272,6 +280,13 @@ function App() {
       return;
     }
 
+    console.log("🔄 Starting payment process", {
+      pendingPayment: !!pendingPayment,
+      address,
+      isInMiniApp,
+      isProcessing: isProcessingPayment.current
+    });
+
     isProcessingPayment.current = true;
     setError(null);
 
@@ -345,11 +360,14 @@ function App() {
         "X-Payment": encodedHeader,
       });
 
+      console.log("✅ Payment completed successfully");
+
     } catch (err) {
-      console.error(err);
+      console.error("❌ Payment failed:", err);
       setError(err instanceof Error ? err.message : "Payment failed");
     } finally {
       // Reset the flag when payment completes or fails
+      console.log("🔓 Resetting payment processing flag");
       isProcessingPayment.current = false;
     }
   }
