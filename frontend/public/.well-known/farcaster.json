@@ -11,16 +11,28 @@
         "iconUrl": "https://infra402.vercel.app/icon.png",
         "splashImageUrl": "https://infra402.vercel.app/splash.png",
         "splashBackgroundColor": "#1a1a2e",
-        "subtitle": "LXC Container Provisioning",
-        "description": "Chat with an AI agent to provision LXC containers using x402 payments. Cheap and accessible infrastructure on demand.",
+        /* "webhookUrl": "https://infra402.vercel.app/api/webhook",
+         not need now */
+        "subtitle": "AI-powered container leasing",
+        "description": "Chat with an AI agent to provision LXC containers using x402 micropayments. Cheap and accessible infrastructure on demand with pay-as-you-go pricing.",
+        "screenshotUrls": [
+            "https://infra402.vercel.app/screenshot1.png",
+            "https://infra402.vercel.app/screenshot2.png",
+            "https://infra402.vercel.app/screenshot3.png"
+        ],
         "primaryCategory": "developer_tools",
         "tags": [
             "infrastructure",
             "containers",
             "x402",
-            "ai"
+            "ai",
+            "payments"
         ],
+        "heroImageUrl": "https://infra402.vercel.app/hero.png",
         "tagline": "Provision containers with AI & x402",
+        "ogTitle": "Infra402 - AI Container Provisioning",
+        "ogDescription": "Lease LXC containers instantly with x402 micropayments. Chat with AI to provision infrastructure on demand.",
+        "ogImageUrl": "https://infra402.vercel.app/og.png",
         "noindex": false
     }
 }
