@@ -43,6 +43,12 @@ export interface X402Header {
 }
 
 export const EIP712_DOMAIN_TYPES = {
+  EIP712Domain: [
+    { name: 'name', type: 'string' },
+    { name: 'version', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'verifyingContract', type: 'address' },
+  ],
   TransferWithAuthorization: [
     { name: 'from', type: 'address' },
     { name: 'to', type: 'address' },
@@ -69,7 +75,7 @@ export function encodeX402Header(header: X402Header): string {
 
 export function getChainId(network: string): number {
   if (import.meta.env.VITE_DEFAULT_CHAIN_ID) {
-      return parseInt(import.meta.env.VITE_DEFAULT_CHAIN_ID, 10);
+    return parseInt(import.meta.env.VITE_DEFAULT_CHAIN_ID, 10);
   }
   switch (network) {
     case 'base-sepolia':

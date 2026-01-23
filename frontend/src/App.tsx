@@ -329,26 +329,41 @@ function App() {
       );
       const value = BigInt(requirement.maxAmountRequired);
 
+      // Ensure domain is properly typed for EIP-712
       const domain = {
         name: requirement.extra?.name ?? "USD Coin",
         version: requirement.extra?.version ?? "2",
-        chainId,
+        chainId: BigInt(chainId),
         verifyingContract: requirement.asset as Address,
-      } as const;
+      };
 
+      // Message values must be in the correct format for EIP-712 signing
       const message = {
         from: address,
         to: requirement.payTo as Address,
-        value,
-        validAfter,
-        validBefore,
-        nonce,
+        value: value,
+        validAfter: validAfter,
+        validBefore: validBefore,
+        nonce: nonce,
       };
 
-      // 3. Sign
+      console.log("🔐 Signing EIP-712 message", {
+        domain,
+        message: {
+          ...message,
+          value: message.value.toString(),
+          validAfter: message.validAfter.toString(),
+          validBefore: message.validBefore.toString(),
+        },
+        primaryType: "TransferWithAuthorization",
+      });
+
+      // 3. Sign with proper EIP-712 typed data
       const signature = await signTypedDataAsync({
         domain,
-        types: EIP712_DOMAIN_TYPES,
+        types: {
+          TransferWithAuthorization: EIP712_DOMAIN_TYPES.TransferWithAuthorization,
+        },
         primaryType: "TransferWithAuthorization",
         message,
       });
@@ -371,13 +386,24 @@ function App() {
         },
       };
 
+      console.log("📦 Constructed X402 Header", {
+        header,
+        encodedPreview: encodeX402Header(header).substring(0, 50) + "...",
+      });
+
       const encodedHeader = encodeX402Header(header);
+
+      console.log("🚀 Sending payment to facilitator", {
+        messageContent: pendingMessageContent,
+        paymentHeaderLength: encodedHeader.length,
+      });
 
       // 5. Retry Chat
       // We pass the pending content and the new headers
       await sendChat(undefined, pendingMessageContent, {
         "X-Payment": encodedHeader,
       });
+
 
       console.log("✅ Payment completed successfully");
       paymentAttemptCount.current = 0;
