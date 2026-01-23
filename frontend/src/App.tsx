@@ -21,6 +21,7 @@ import {
   encodeX402Header,
   generateNonce,
   getChainId,
+  normalizeSignature,
   EIP712_DOMAIN_TYPES,
   type PaymentRequest,
   type PaymentRequirement,
@@ -359,13 +360,26 @@ function App() {
       });
 
       // 3. Sign with proper EIP-712 typed data
-      const signature = await signTypedDataAsync({
+      const rawSignature = await signTypedDataAsync({
         domain,
         types: {
           TransferWithAuthorization: EIP712_DOMAIN_TYPES.TransferWithAuthorization,
         },
         primaryType: "TransferWithAuthorization",
         message,
+      });
+
+      console.log("📝 Raw signature received:", {
+        signature: rawSignature,
+        length: rawSignature.length,
+      });
+
+      // Normalize signature for Smart Wallet compatibility
+      const signature = normalizeSignature(rawSignature);
+
+      console.log("✅ Normalized signature:", {
+        signature,
+        length: signature.length,
       });
 
       // 4. Construct Header

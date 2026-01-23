@@ -67,6 +67,46 @@ export function generateNonce(): Hex {
     .join('')}`;
 }
 
+/**
+ * Normalizes a signature to raw 65-byte hex format.
+ * Smart Wallets (EIP-1271) may return ABI-encoded signatures,
+ * which need to be decoded to extract the raw r, s, v values.
+ */
+export function normalizeSignature(signature: Hex): Hex {
+  // If signature is already 65 bytes (130 hex chars + 0x), return as-is
+  if (signature.length === 132) {
+    return signature;
+  }
+
+  // Smart Wallet signatures may be ABI-encoded
+  // Format: 0x + [offset (32 bytes)] + [length (32 bytes)] + [data (65 bytes)]
+  // Total: 0x + 64 + 64 + 130 = 260 characters
+  if (signature.length > 132) {
+    console.log('🔧 Detected ABI-encoded signature, extracting raw signature...');
+
+    // Skip the '0x' prefix
+    const hexData = signature.slice(2);
+
+    // The actual signature starts after offset (32 bytes) and length (32 bytes)
+    // That's 64 hex chars for offset + 64 hex chars for length = 128 chars
+    const signatureData = hexData.slice(128);
+
+    // Extract the first 130 characters (65 bytes) which is the raw signature
+    const rawSignature = signatureData.slice(0, 130);
+
+    console.log('✅ Extracted raw signature:', {
+      original: signature.substring(0, 50) + '...',
+      extracted: '0x' + rawSignature,
+    });
+
+    return ('0x' + rawSignature) as Hex;
+  }
+
+  // If signature format is unexpected, return as-is and let validation fail
+  console.warn('⚠️ Unexpected signature format, length:', signature.length);
+  return signature;
+}
+
 export function encodeX402Header(header: X402Header): string {
   const json = JSON.stringify(header);
   // Simple Base64 encoding for browser
