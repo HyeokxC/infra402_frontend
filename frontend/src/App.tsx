@@ -61,7 +61,7 @@ function randomId() {
 }
 
 function App() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
   const { connect, connectors } = useConnect();
 
@@ -304,7 +304,9 @@ function App() {
       address,
       isInMiniApp,
       isProcessing: isProcessingPayment.current,
-      attempt: paymentAttemptCount.current
+      attempt: paymentAttemptCount.current,
+      connectedChain: chain?.id,
+      connectedChainName: chain?.name,
     });
 
     isProcessingPayment.current = true;
@@ -323,6 +325,21 @@ function App() {
 
       // 2. Prepare data
       const chainId = getChainId(requirement.network);
+
+      // Verify user is on the correct chain
+      if (chain && chain.id !== chainId) {
+        throw new Error(
+          `Chain mismatch: wallet is on ${chain.name} (${chain.id}), but payment requires ${requirement.network} (${chainId})`
+        );
+      }
+
+      console.log("✅ Chain verification passed", {
+        requiredNetwork: requirement.network,
+        requiredChainId: chainId,
+        walletChainId: chain?.id,
+        walletChainName: chain?.name,
+      });
+
       const nonce = generateNonce();
       const validAfter = BigInt(Math.floor(Date.now() / 1000) - 60);
       const validBefore = BigInt(
@@ -348,22 +365,37 @@ function App() {
         nonce: nonce,
       };
 
-      console.log("🔐 Signing EIP-712 message", {
-        domain,
+      console.log("🔐 Preparing to sign EIP-712 message", {
+        domain: {
+          name: domain.name,
+          version: domain.version,
+          chainId: domain.chainId.toString(),
+          verifyingContract: domain.verifyingContract,
+        },
         message: {
-          ...message,
+          from: message.from,
+          to: message.to,
           value: message.value.toString(),
           validAfter: message.validAfter.toString(),
           validBefore: message.validBefore.toString(),
+          nonce: message.nonce,
         },
         primaryType: "TransferWithAuthorization",
       });
 
       // 3. Sign with proper EIP-712 typed data
+      // Note: wagmi's signTypedDataAsync expects types without EIP712Domain
       const rawSignature = await signTypedDataAsync({
         domain,
         types: {
-          TransferWithAuthorization: EIP712_DOMAIN_TYPES.TransferWithAuthorization,
+          TransferWithAuthorization: [
+            { name: 'from', type: 'address' },
+            { name: 'to', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'validAfter', type: 'uint256' },
+            { name: 'validBefore', type: 'uint256' },
+            { name: 'nonce', type: 'bytes32' },
+          ],
         },
         primaryType: "TransferWithAuthorization",
         message,
@@ -424,7 +456,28 @@ function App() {
 
     } catch (err) {
       console.error("❌ Payment failed:", err);
-      setError(err instanceof Error ? err.message : "Payment failed");
+
+      // Detailed error logging
+      if (err instanceof Error) {
+        console.error("Error details:", {
+          message: err.message,
+          name: err.name,
+          stack: err.stack,
+        });
+
+        // Check for common issues
+        if (err.message.includes('User rejected')) {
+          setError("서명을 취소하셨습니다. 다시 시도해주세요.");
+        } else if (err.message.includes('Chain mismatch')) {
+          setError("지갑의 네트워크를 Base Sepolia로 변경해주세요.");
+        } else if (err.message.includes('signature')) {
+          setError("서명 생성에 실패했습니다. 지갑 연결을 확인해주세요.");
+        } else {
+          setError(err.message || "Payment failed");
+        }
+      } else {
+        setError("Unknown error occurred during payment");
+      }
     } finally {
       // Reset the flag when payment completes or fails
       console.log("🔓 Resetting payment processing flag");
