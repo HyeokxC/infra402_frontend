@@ -85,6 +85,7 @@ function App() {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLElement | null>(null);
   const isProcessingPayment = useRef<boolean>(false);
+  const paymentAttemptCount = useRef<number>(0);
 
   const canSend = useMemo(
     () => Boolean(input.trim()) && !loading && !pendingPayment,
@@ -228,12 +229,17 @@ function App() {
 
       const data = await response.json();
 
-      if (data.payment_request) {
-        // 402 encountered
+      if (data.payment_request && !paymentHeaders) {
+        // 402 encountered - only set pending payment if we're not retrying
         setPendingPayment(data.payment_request);
         setPendingMessageContent(content);
         // Do NOT add an assistant message yet.
         return;
+      }
+
+      if (data.payment_request && paymentHeaders) {
+        // Payment headers were sent but still got 402 - backend rejected the payment
+        throw new Error("Payment verification failed. Please try again.");
       }
 
       const reply = data?.reply ?? "No content returned.";
@@ -249,6 +255,7 @@ function App() {
       // Clear pending state on success
       setPendingPayment(null);
       setPendingMessageContent(null);
+      paymentAttemptCount.current = 0;
 
     } catch (err) {
       const reason =
@@ -280,11 +287,23 @@ function App() {
       return;
     }
 
+    // Limit payment attempts to prevent infinite loops
+    if (paymentAttemptCount.current >= 3) {
+      console.error("❌ Payment failed too many times, stopping attempts");
+      setError("Payment failed. Please refresh and try again.");
+      setPendingPayment(null);
+      setPendingMessageContent(null);
+      paymentAttemptCount.current = 0;
+      return;
+    }
+
+    paymentAttemptCount.current++;
     console.log("🔄 Starting payment process", {
       pendingPayment: !!pendingPayment,
       address,
       isInMiniApp,
-      isProcessing: isProcessingPayment.current
+      isProcessing: isProcessingPayment.current,
+      attempt: paymentAttemptCount.current
     });
 
     isProcessingPayment.current = true;
@@ -361,6 +380,7 @@ function App() {
       });
 
       console.log("✅ Payment completed successfully");
+      paymentAttemptCount.current = 0;
 
     } catch (err) {
       console.error("❌ Payment failed:", err);
@@ -394,6 +414,7 @@ function App() {
     setPendingPayment(null);
     setPendingMessageContent(null);
     isProcessingPayment.current = false;
+    paymentAttemptCount.current = 0;
     inputRef.current?.focus();
   }
 
