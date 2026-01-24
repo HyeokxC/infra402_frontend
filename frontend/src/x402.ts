@@ -1,4 +1,9 @@
-import { type Address, type Hex, numberToHex } from 'viem';
+import {
+  type Address,
+  type Hex,
+  numberToHex,
+  bytesToHex,
+} from 'viem';
 
 export const X402_VERSION = 1;
 
@@ -72,39 +77,56 @@ export function generateNonce(): Hex {
  * Smart Wallets (EIP-1271) may return ABI-encoded signatures,
  * which need to be decoded to extract the raw r, s, v values.
  */
-export function normalizeSignature(signature: Hex): Hex {
-  // If signature is already 65 bytes (130 hex chars + 0x), return as-is
-  if (signature.length === 132) {
-    return signature;
+export function normalizeSignature(raw: Hex | Uint8Array | string): Hex {
+  // Convert input to hex string with 0x prefix
+  let hex: string;
+  if (raw instanceof Uint8Array) {
+    hex = bytesToHex(raw);
+  } else {
+    hex = raw as string;
+    if (!hex.startsWith('0x')) hex = `0x${hex}`;
   }
 
-  // Smart Wallet signatures may be ABI-encoded
-  // Format: 0x + [offset (32 bytes)] + [length (32 bytes)] + [data (65 bytes)]
-  // Total: 0x + 64 + 64 + 130 = 260 characters
-  if (signature.length > 132) {
-    console.log('🔧 Detected ABI-encoded signature, extracting raw signature...');
-
-    // Skip the '0x' prefix
-    const hexData = signature.slice(2);
-
-    // The actual signature starts after offset (32 bytes) and length (32 bytes)
-    // That's 64 hex chars for offset + 64 hex chars for length = 128 chars
-    const signatureData = hexData.slice(128);
-
-    // Extract the first 130 characters (65 bytes) which is the raw signature
-    const rawSignature = signatureData.slice(0, 130);
-
-    console.log('✅ Extracted raw signature:', {
-      original: signature.substring(0, 50) + '...',
-      extracted: '0x' + rawSignature,
-    });
-
-    return ('0x' + rawSignature) as Hex;
+  // If already 65-byte ECDSA (r||s||v), return as-is
+  if (hex.length === 132) {
+    // Heuristic: some wallets wrongly return ABI head words that look like
+    // offsets (0x40) and lengths (0x41) inside a 65-byte slice. Detect and
+    // fall through to attempt extraction instead of accepting as-is.
+    const head1 = hex.slice(2, 66);
+    const head2 = hex.slice(66, 130);
+    const looksLikeAbiHead =
+      head1.endsWith('40') && head1.slice(0, -2).match(/^0+$/) &&
+      head2.slice(0, -2).match(/^0+$/);
+    if (!looksLikeAbiHead) {
+      return hex as Hex;
+    }
   }
 
-  // If signature format is unexpected, return as-is and let validation fail
-  console.warn('⚠️ Unexpected signature format, length:', signature.length);
-  return signature;
+  // If ABI-encoded dynamic bytes: head[0]=offset, head[1]=len, tail=data
+  if (hex.length > 132) {
+    const head1 = hex.slice(2, 66);
+    const head2 = hex.slice(66, 130);
+
+    const offset = BigInt(`0x${head1}`);
+    const length = Number(BigInt(`0x${head2}`));
+
+    const dataStart = 2 + Number(offset) * 2;
+    const dataEnd = dataStart + length * 2;
+
+    if (dataEnd <= hex.length && length >= 65) {
+      const dataHex = hex.slice(dataStart, dataStart + 130); // first 65 bytes
+      return (`0x${dataHex.replace(/^0x/, '')}`) as Hex;
+    }
+
+    // Fallback: take last 65-byte tail if present
+    if (hex.length >= 130 + 2) {
+      const tail = hex.slice(-130);
+      return (`0x${tail}`) as Hex;
+    }
+  }
+
+  // If still unexpected length, return raw hex to let verification fail loudly
+  return hex as Hex;
 }
 
 export function encodeX402Header(header: X402Header): string {
