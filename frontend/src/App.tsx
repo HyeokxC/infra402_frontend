@@ -56,6 +56,11 @@ const chatApiBase =
     "",
   ) || "http://localhost:8000";
 
+// Build label to confirm deployment recency
+const BUILD_LABEL =
+  (import.meta.env.VITE_BUILD_LABEL as string | undefined) ||
+  new Date().toISOString();
+
 function randomId() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -524,6 +529,7 @@ function App() {
             <div className="meta">
               <span>Base URL: {info?.base_url ?? "…"}</span>
               <span>Model: {info?.model_name ?? "…"}</span>
+              <span>Build: {BUILD_LABEL}</span>
             </div>
           </div>
           <div className="wallet-container">
