@@ -88,17 +88,16 @@ export function normalizeSignature(raw: Hex | Uint8Array | string): Hex {
   }
 
   // If already 65-byte ECDSA (r||s||v), return as-is
-  if (hex.length === 132) {
-    // Heuristic: some wallets wrongly return ABI head words that look like
-    // offsets (0x40) and lengths (0x41) inside a 65-byte slice. Detect and
-    // fall through to attempt extraction instead of accepting as-is.
+  const is65Bytes = hex.length === 132;
+  if (is65Bytes) {
+    // Heuristic: if it actually looks like an ABI head (offset/len), try decode path below
     const head1 = hex.slice(2, 66);
     const head2 = hex.slice(66, 130);
     const looksLikeAbiHead =
       head1.endsWith('40') && head1.slice(0, -2).match(/^0+$/) &&
       head2.slice(0, -2).match(/^0+$/);
     if (!looksLikeAbiHead) {
-      return hex as Hex;
+      // keep flowing to possible v-fix below
     }
   }
 
