@@ -102,7 +102,7 @@ export function normalizeSignature(raw: Hex | Uint8Array | string): Hex {
     }
   }
 
-  // If ABI-encoded dynamic bytes: head[0]=offset, head[1]=len, tail=data
+  // If ABI-encoded dynamic bytes: head[0]=offset, then at offset comes [len][data...]
   if (hex.length > 132) {
     const head1 = hex.slice(2, 66);
     const head2 = hex.slice(66, 130);
@@ -110,11 +110,14 @@ export function normalizeSignature(raw: Hex | Uint8Array | string): Hex {
     const offset = BigInt(`0x${head1}`);
     const length = Number(BigInt(`0x${head2}`));
 
-    const dataStart = 2 + Number(offset) * 2;
+    // In ABI encoding for a single dynamic bytes argument,
+    // the data section starts at `offset`, and the first word there is the length.
+    const lengthWordStart = 2 + Number(offset) * 2;
+    const dataStart = lengthWordStart + 64; // skip the length word
     const dataEnd = dataStart + length * 2;
 
     if (dataEnd <= hex.length && length >= 65) {
-      const dataHex = hex.slice(dataStart, dataStart + 130); // first 65 bytes
+      const dataHex = hex.slice(dataStart, dataStart + 130); // first 65 bytes (r,s,v)
       return (`0x${dataHex.replace(/^0x/, '')}`) as Hex;
     }
 
