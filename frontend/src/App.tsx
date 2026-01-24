@@ -354,7 +354,7 @@ function App() {
 
       // Ensure domain is properly typed for EIP-712
       const domain = {
-        name: requirement.extra?.name ?? "USD Coin",
+        name: requirement.extra?.name ?? "USDC",
         version: requirement.extra?.version ?? "2",
         chainId: BigInt(chainId),
         verifyingContract: requirement.asset as Address,
