@@ -116,14 +116,8 @@ export function normalizeSignature(raw: Hex | Uint8Array | string): Hex {
     const dataEnd = dataStart + length * 2;
 
     if (dataEnd <= hex.length && length >= 65) {
-      const dataHex = hex.slice(dataStart, dataStart + 130); // first 65 bytes (r,s,v)
+      const dataHex = hex.slice(dataStart, dataEnd); // Extract full data
       return (`0x${dataHex.replace(/^0x/, '')}`) as Hex;
-    }
-
-    // Fallback: take last 65-byte tail if present
-    if (hex.length >= 130 + 2) {
-      const tail = hex.slice(-130);
-      return (`0x${tail}`) as Hex;
     }
   }
 
