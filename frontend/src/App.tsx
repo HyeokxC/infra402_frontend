@@ -22,8 +22,8 @@ import {
 
 // Wrapper component to handle global logic like auto-connect
 const AppContent = () => {
-  const { isConnected, connectors } = useAccount();
-  const { connect } = useConnect();
+  const { isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
   const isInMiniApp = typeof window !== 'undefined' && window.parent !== window;
 
   // Auto-connect wallet logic
