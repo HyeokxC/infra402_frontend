@@ -2,7 +2,7 @@ import { OnchainKitProvider } from '@coinbase/onchainkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { baseSepolia, base, sepolia } from 'wagmi/chains';
 import { http, createConfig, WagmiProvider } from 'wagmi';
-import { coinbaseWallet } from 'wagmi/connectors';
+import { coinbaseWallet, injected } from 'wagmi/connectors';
 import type { ReactNode } from 'react';
 
 const queryClient = new QueryClient();
@@ -19,9 +19,9 @@ if (networkName === 'base') {
 const wagmiConfig = createConfig({
   chains: [activeChain],
   connectors: [
+    injected(),
     coinbaseWallet({
       appName: 'Infra402',
-      preference: 'all', // Force Coinbase Wallet, override other extensions
     }),
   ],
   transports: {
