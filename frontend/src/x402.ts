@@ -129,6 +129,15 @@ export function normalizeSignature(raw: Hex | Uint8Array | string): Hex {
   }
 
   // If still unexpected length, return raw hex to let verification fail loudly
+  // Before returning, normalize v to 27/28 if wallet returned 0/1
+  if (hex.length === 132) {
+    const vByte = parseInt(hex.slice(-2), 16);
+    if (vByte === 0 || vByte === 1) {
+      const adjusted = (vByte + 27).toString(16).padStart(2, '0');
+      return (`0x${hex.slice(2, -2)}${adjusted}`) as Hex;
+    }
+  }
+
   return hex as Hex;
 }
 
