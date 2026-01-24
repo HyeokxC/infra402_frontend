@@ -341,7 +341,7 @@ function App() {
       });
 
       const nonce = generateNonce();
-      const validAfter = BigInt(Math.floor(Date.now() / 1000) - 60);
+      const validAfter = BigInt(Math.floor(Date.now() / 1000) - 1800);
       const validBefore = BigInt(
         Math.floor(Date.now() / 1000) + requirement.maxTimeoutSeconds
       );
