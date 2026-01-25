@@ -1,49 +1,79 @@
-import { Box, Play, Square, RefreshCw, Cpu, HardDrive } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Box, RefreshCw, Cpu, HardDrive, AlertCircle } from 'lucide-react';
+import { getLxcStats, type LxcStats } from '../api/stats';
+import { formatBytes, formatPct } from '../utils/formatters';
 
-interface Container {
-    id: string;
-    sku: string;
-    image: string;
-    status: 'running' | 'provisioning' | 'stopped';
-    uptime: string;
-    specs: {
-        cpu: number; // percentage
-        ram: number; // percentage
-    };
-    created_at: string;
-}
-
-const mockContainers: Container[] = [
-    {
-        id: 'cnt-8x9d2a',
-        sku: 'standard-m1',
-        image: 'ubuntu:22.04',
-        status: 'running',
-        uptime: '2d 14h 32m',
-        specs: { cpu: 24, ram: 45 },
-        created_at: '2023-10-24 10:00:00'
-    },
-    {
-        id: 'cnt-3k2j9s',
-        sku: 'gpu-s1',
-        image: 'pytorch/pytorch:latest',
-        status: 'provisioning',
-        uptime: '0m',
-        specs: { cpu: 0, ram: 0 },
-        created_at: '2023-10-26 15:30:00'
-    },
-    {
-        id: 'cnt-9f8d1z',
-        sku: 'light-s2',
-        image: 'redis:alpine',
-        status: 'stopped',
-        uptime: '-',
-        specs: { cpu: 0, ram: 0 },
-        created_at: '2023-10-20 09:15:00'
-    }
-];
+const POLL_MS = 10000;
 
 export default function ContainersPage() {
+    const [containers, setContainers] = useState<LxcStats[]>([]);
+    const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const isActive = useRef(true);
+
+    const loadStats = useCallback(
+        async (mode: 'initial' | 'refresh', signal?: AbortSignal) => {
+            if (mode === 'initial') {
+                setIsLoading(true);
+            } else {
+                setIsRefreshing(true);
+            }
+            try {
+                const data = await getLxcStats(signal);
+                if (!isActive.current) return;
+                setContainers(data);
+                setError(null);
+                setLastUpdated(new Date());
+            } catch (err) {
+                if (!isActive.current) return;
+                if (err instanceof DOMException && err.name === 'AbortError') return;
+                setError(err instanceof Error ? err.message : 'Failed to load container stats.');
+            } finally {
+                if (!isActive.current) return;
+                if (mode === 'initial') {
+                    setIsLoading(false);
+                } else {
+                    setIsRefreshing(false);
+                }
+            }
+        },
+        []
+    );
+
+    useEffect(() => {
+        isActive.current = true;
+        const controller = new AbortController();
+        void loadStats('initial', controller.signal);
+        const interval = window.setInterval(() => {
+            void loadStats('refresh');
+        }, POLL_MS);
+        return () => {
+            isActive.current = false;
+            controller.abort();
+            window.clearInterval(interval);
+        };
+    }, [loadStats]);
+
+    const rows = useMemo(() => {
+        return containers.map((container) => {
+            const status = (container.status || 'unknown').toLowerCase();
+            const statusColor =
+                status === 'running'
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : status === 'stopped'
+                        ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+
+            return {
+                ...container,
+                status,
+                statusColor,
+            };
+        });
+    }, [containers]);
+
     return (
         <div className="h-full flex flex-col gap-6">
             <header className="flex justify-between items-end">
@@ -53,95 +83,127 @@ export default function ContainersPage() {
                         My Containers
                     </h1>
                     <p className="text-zinc-400 text-sm mt-1">
-                        Manage your active and stopped container leases.
+                        Active leases and live resource usage.
                     </p>
+                    {lastUpdated && (
+                        <p className="text-xs text-zinc-500 mt-1">
+                            Updated {lastUpdated.toLocaleTimeString()}
+                        </p>
+                    )}
                 </div>
-                <button className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
-                    <RefreshCw className="w-4 h-4" />
+                <button
+                    className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                    onClick={() => void loadStats('refresh')}
+                    disabled={isRefreshing}
+                    title="Refresh"
+                >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </button>
             </header>
+
+            {error && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    {error}
+                </div>
+            )}
 
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-zinc-400">
                         <thead className="bg-zinc-900 border-b border-zinc-800 text-xs uppercase font-medium">
                             <tr>
-                                <th className="px-6 py-4">Container ID</th>
+                                <th className="px-6 py-4">Container</th>
                                 <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4">Image / SKU</th>
+                                <th className="px-6 py-4">SKU</th>
                                 <th className="px-6 py-4">Resources</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-800/50">
-                            {mockContainers.map((container) => (
-                                <tr key={container.id} className="hover:bg-zinc-800/30 transition-colors group">
+                            {isLoading && (
+                                <tr>
+                                    <td className="px-6 py-6 text-zinc-500" colSpan={4}>
+                                        Loading containers...
+                                    </td>
+                                </tr>
+                            )}
+                            {!isLoading && rows.length === 0 && (
+                                <tr>
+                                    <td className="px-6 py-6 text-zinc-500" colSpan={4}>
+                                        No containers found.
+                                    </td>
+                                </tr>
+                            )}
+                            {rows.map((container) => (
+                                <tr key={`${container.leaseId}-${container.ctid}`} className="hover:bg-zinc-800/30 transition-colors group">
                                     <td className="px-6 py-4 font-mono text-zinc-200">
                                         <div className="flex flex-col">
-                                            <span className="font-bold text-brand-500 group-hover:underline cursor-pointer">{container.id}</span>
-                                            <span className="text-xs text-zinc-600">{container.created_at}</span>
+                                            <span className="font-bold text-brand-500">CT {container.ctid}</span>
+                                            <span className="text-xs text-zinc-600">Lease {container.leaseId || '-'}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        {container.status === 'running' && (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                                Running
+                                        <div className="flex flex-col gap-2">
+                                            <span
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${container.statusColor}`}
+                                            >
+                                                {container.status}
                                             </span>
-                                        )}
-                                        {container.status === 'provisioning' && (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                <LoaderSpinner />
-                                                Provisioning
-                                            </span>
-                                        )}
-                                        {container.status === 'stopped' && (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                                                Stopped
-                                            </span>
-                                        )}
+                                            {container.error && (
+                                                <span className="flex items-center gap-1 text-xs text-red-400">
+                                                    <AlertCircle className="w-3 h-3" />
+                                                    {container.error}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
-                                            <span className="text-zinc-200">{container.image}</span>
-                                            <span className="text-xs text-zinc-500">{container.sku}</span>
+                                            <span className="text-zinc-200">{container.sku ?? '-'}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-2 w-32">
+                                        <div className="flex flex-col gap-3 w-48">
                                             <div className="flex items-center gap-2">
                                                 <Cpu className="w-3 h-3 text-zinc-500" />
                                                 <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                                                     <div
                                                         className="h-full bg-brand-500 rounded-full"
-                                                        style={{ width: `${container.specs.cpu}%` }}
+                                                        style={{ width: `${Math.min(container.cpu?.pct ?? 0, 100)}%` }}
                                                     />
                                                 </div>
+                                                <span className="text-xs text-zinc-500 w-12 text-right">
+                                                    {formatPct(container.cpu?.pct)}
+                                                </span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <HardDrive className="w-3 h-3 text-zinc-500" />
                                                 <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                                                     <div
                                                         className="h-full bg-violet-500 rounded-full"
-                                                        style={{ width: `${container.specs.ram}%` }}
+                                                        style={{ width: `${Math.min(container.memory?.pct ?? 0, 100)}%` }}
                                                     />
                                                 </div>
+                                                <span className="text-xs text-zinc-500 w-12 text-right">
+                                                    {formatPct(container.memory?.pct)}
+                                                </span>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            {container.status === 'running' && (
-                                                <button className="p-2 rounded bg-zinc-800 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors" title="Stop">
-                                                    <Square className="w-4 h-4 fill-current" />
-                                                </button>
-                                            )}
-                                            {container.status === 'stopped' && (
-                                                <button className="p-2 rounded bg-zinc-800 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors" title="Start">
-                                                    <Play className="w-4 h-4 fill-current" />
-                                                </button>
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <HardDrive className="w-3 h-3 text-zinc-500" />
+                                                <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-emerald-500 rounded-full"
+                                                        style={{ width: `${Math.min(container.disk?.pct ?? 0, 100)}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-xs text-zinc-500 w-12 text-right">
+                                                    {formatPct(container.disk?.pct)}
+                                                </span>
+                                            </div>
+                                            <div className="text-[11px] text-zinc-600">
+                                                Mem {formatBytes(container.memory?.used)} / {formatBytes(container.memory?.total)}
+                                                {' '}
+                                                • Disk {formatBytes(container.disk?.used)} / {formatBytes(container.disk?.total)}
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -153,10 +215,3 @@ export default function ContainersPage() {
         </div>
     );
 }
-
-const LoaderSpinner = () => (
-    <svg className="animate-spin h-3 w-3 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
-);
