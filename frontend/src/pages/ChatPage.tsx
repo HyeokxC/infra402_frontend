@@ -422,7 +422,7 @@ export default function ChatPage() {
 
     return (
         <div className="flex flex-col h-full bg-[#212121]">
-            <div className="flex-1 overflow-y-auto p-4" ref={messagesRef}>
+            <div className="chat-scroll flex-1 overflow-y-auto p-4" ref={messagesRef}>
                 <div className="max-w-3xl mx-auto space-y-6">
                     {messages.map((msg) => (
                         <div
