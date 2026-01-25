@@ -1,7 +1,7 @@
 const statsApiBase =
     (import.meta.env.VITE_STATS_API_BASE as string | undefined)?.replace(/\/$/, "") ||
     (import.meta.env.VITE_CHAT_API_BASE as string | undefined)?.replace(/\/$/, "") ||
-    "http://localhost:8000";
+    "http://localhost:4021";
 
 export type UsageStats = {
     used: number | null;
@@ -35,7 +35,9 @@ export type LxcStats = {
 };
 
 async function fetchJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-    const resp = await fetch(`${statsApiBase}${path}`, { signal });
+    const url = `${statsApiBase}${path}`;
+    console.debug("[stats] request", url);
+    const resp = await fetch(url, { signal });
     if (!resp.ok) {
         let message = "";
         try {
