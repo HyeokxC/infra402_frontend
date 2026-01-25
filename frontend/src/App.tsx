@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { useAccount, useConnect } from 'wagmi';
 import MainLayout from './components/layout/MainLayout';
-import ChatPage from './pages/ChatPage';
 import ServersPage from './pages/ServersPage';
 import ContainersPage from './pages/ContainersPage';
 
@@ -35,8 +34,8 @@ const AppContent = () => {
 
   return (
     <Routes>
-      <Route path="/" element={<MainLayout />}>
-        <Route index element={<ChatPage />} />
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<div />} />
         <Route path="servers" element={<ServersPage />} />
         <Route path="containers" element={<ContainersPage />} />
       </Route>
