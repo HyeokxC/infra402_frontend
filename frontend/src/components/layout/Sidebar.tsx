@@ -1,5 +1,18 @@
 import { NavLink } from 'react-router-dom';
 import { MessageSquare, Server, Cpu, Box, LayoutGrid } from 'lucide-react';
+import {
+    ConnectWallet,
+    Wallet,
+    WalletDropdown,
+    WalletDropdownDisconnect,
+} from "@coinbase/onchainkit/wallet";
+import {
+    Address,
+    Avatar,
+    Name,
+    Identity,
+    EthBalance,
+} from "@coinbase/onchainkit/identity";
 
 const Sidebar = () => {
     const navItems = [
@@ -35,8 +48,25 @@ const Sidebar = () => {
                 ))}
             </nav>
 
-            <div className="p-4 border-t border-[#303030]">
-                <div className="text-xs text-gray-500">
+            <div className="p-4 border-t border-[#303030] bg-[#1a1a1a]">
+                <div className="mb-2">
+                    <Wallet>
+                        <ConnectWallet className="w-full bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg !h-10 px-3 flex items-center justify-start gap-2 transition-all">
+                            <Avatar className="h-5 w-5" />
+                            <Name className="text-sm" />
+                        </ConnectWallet>
+                        <WalletDropdown>
+                            <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+                                <Avatar />
+                                <Name />
+                                <Address />
+                                <EthBalance />
+                            </Identity>
+                            <WalletDropdownDisconnect />
+                        </WalletDropdown>
+                    </Wallet>
+                </div>
+                <div className="text-xs text-gray-500 text-center">
                     v0.1.0 Beta
                 </div>
             </div>

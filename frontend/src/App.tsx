@@ -5,19 +5,7 @@ import MainLayout from './components/layout/MainLayout';
 import ChatPage from './pages/ChatPage';
 import ServersPage from './pages/ServersPage';
 import ContainersPage from './pages/ContainersPage';
-import {
-  ConnectWallet,
-  Wallet,
-  WalletDropdown,
-  WalletDropdownDisconnect,
-} from "@coinbase/onchainkit/wallet";
-import {
-  Address,
-  Avatar,
-  Name,
-  Identity,
-  EthBalance,
-} from "@coinbase/onchainkit/identity";
+
 
 // Wrapper component to handle global logic like auto-connect
 const AppContent = () => {
@@ -70,23 +58,7 @@ function App() {
       <AppContent />
 
       {/* Absolute positioned Wallet Button for global access */}
-      <div className="fixed top-3 right-3 z-50">
-        <Wallet>
-          <ConnectWallet className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-2 transition-all shadow-lg text-sm">
-            <Avatar className="h-5 w-5" />
-            <Name />
-          </ConnectWallet>
-          <WalletDropdown>
-            <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
-              <Avatar />
-              <Name />
-              <Address />
-              <EthBalance />
-            </Identity>
-            <WalletDropdownDisconnect />
-          </WalletDropdown>
-        </Wallet>
-      </div>
+
     </BrowserRouter>
   );
 }
