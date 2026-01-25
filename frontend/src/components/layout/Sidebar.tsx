@@ -5,7 +5,6 @@ const Sidebar = () => {
     const navItems = [
         { name: 'Chat', icon: MessageSquare, path: '/' },
         { name: 'Server Selection', icon: Server, path: '/servers' },
-        { name: 'Memory Usage', icon: Cpu, path: '/memory' },
         { name: 'My Containers', icon: Box, path: '/containers' },
     ];
 

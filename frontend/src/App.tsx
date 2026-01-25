@@ -4,7 +4,6 @@ import { useAccount, useConnect } from 'wagmi';
 import MainLayout from './components/layout/MainLayout';
 import ChatPage from './pages/ChatPage';
 import ServersPage from './pages/ServersPage';
-import MemoryPage from './pages/MemoryPage';
 import ContainersPage from './pages/ContainersPage';
 import {
   ConnectWallet,
@@ -51,7 +50,6 @@ const AppContent = () => {
       <Route path="/" element={<MainLayout />}>
         <Route index element={<ChatPage />} />
         <Route path="servers" element={<ServersPage />} />
-        <Route path="memory" element={<MemoryPage />} />
         <Route path="containers" element={<ContainersPage />} />
       </Route>
     </Routes>
@@ -72,10 +70,10 @@ function App() {
       <AppContent />
 
       {/* Absolute positioned Wallet Button for global access */}
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed top-3 right-3 z-50">
         <Wallet>
-          <ConnectWallet className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white rounded-xl px-4 py-2 flex items-center gap-2 transition-all shadow-lg">
-            <Avatar className="h-6 w-6" />
+          <ConnectWallet className="bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-2 transition-all shadow-lg text-sm">
+            <Avatar className="h-5 w-5" />
             <Name />
           </ConnectWallet>
           <WalletDropdown>
